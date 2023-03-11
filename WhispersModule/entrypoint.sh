@@ -1,7 +1,7 @@
 #!/bin/sh -l
 pip install whispers
 output=$(whispers src/)
-if [ "($output)" = "[]" ]
+if [ "$output" = "[]" ]
 then
 	exit 0
 fi
