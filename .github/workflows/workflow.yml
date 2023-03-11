@@ -1,5 +1,5 @@
 name: React CI
-
+# Specifies the trigger for this workflow. This example uses the push event, so a workflow run is triggered every time someone pushes a change to the repository or merges a pull request in main and master.
 on:
   push:
     branches:
@@ -7,19 +7,23 @@ on:
       - "master"
       
   workflow_dispatch:
-  
+# Groups together all the jobs that run in this workflow.  
 jobs:
+# Defines a job named setup. The child keys will define properties of the job.
   setup:
+  # Configures the job to run on the latest version of an Ubuntu Linux runner (hosted by github)
     runs-on: ubuntu-latest
-    
+    # A matrix strategy lets you use variables in a single job definition to automatically create multiple job runs that are based on the combinations of the variables.
     strategy:
       matrix:
         node-version: [10.x, 12.x, 14.x, 15.x]
-        
+    # Groups together all the steps that run in the setup job. Each item nested under this section is a separate action or shell script.
     steps:
-      - uses: actions/checkout@v2
+    # The uses keyword specifies that this step will run v3 of the actions/checkout action. This is an action that checks out your repository onto the runner,
+      - uses: actions/checkout@v3
+      # This step uses the actions/setup-node@v3 action to install the specified version of the Node.js. This puts both the node and npm commands in your PATH.
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
 
@@ -29,7 +33,8 @@ jobs:
         with:
           path: ./node_modules
           key: modules-${{ hashFiles('package-lock.json') }}
-
+      
+      # The run keyword tells the job to execute a command on the runner. In this case, you are using npm ci which is equivalent to to npm install for installing depencies in a CI environment.
       - name: Install dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: npm ci --ignore-scripts
@@ -37,15 +42,16 @@ jobs:
       - name: build 
         run: npm run build --if-present
         
-      # Share artifact inside workflow
+      # Upload a build artifcat that can be used by subsequent workflow steps
       - name: Share artifact inside workflow
         uses: actions/upload-artifact@v1
         with:
           name: react-github-actions-build
           path: build
-
+# linting job
   lint:
     runs-on: ubuntu-latest
+    # Needs the last job to be finished before starting this one
     needs: setup
     steps:       
       - uses: actions/checkout@v2
@@ -53,7 +59,7 @@ jobs:
         run: npx standard -v --fix
 
           
-
+# codeQL job
   codeql:
     runs-on: ubuntu-latest
     needs: lint
@@ -72,7 +78,8 @@ jobs:
             
       - name: CodeQL analysis 
         run: ./codeql/./codeql database analyze --format=CSV --output=output.csv db
-      
+ 
+ # whispers job
   whispers:
     runs-on: ubuntu-latest
     needs: lint
@@ -81,11 +88,9 @@ jobs:
       - name: Use whispers in docker
         uses: ./WhispersModule/
             
-
+# deploy job
   deploy:
     runs-on: ubuntu-latest
-    # When application is successfully tested and build has been generated
-    # Then we can start with deployment
     needs: [whispers, codeql]
     steps:
     
